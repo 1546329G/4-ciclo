@@ -1,0 +1,316 @@
+#codigo de equipo.php #
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<?php
+// Obtener el ID del propietario y la mascota seleccionada
+$id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$mascota_id = isset($_GET['mascota_id']) ? intval($_GET['mascota_id']) : 0;
+
+
+
+// Consultar los detalles del propietario
+$sql = "SELECT * FROM clientes WHERE id = ?";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $id);
+$stmt->execute();
+$result = $stmt->get_result();
+
+if ($result->num_rows > 0) {
+    $row = $result->fetch_assoc();
+} else {
+    die("No se encontró el propietario.");
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Consultar todas las mascotas del propietario
+$sql_mascotas = "SELECT * FROM mascotas WHERE propietario_id = ?";
+$stmt_mascotas = $conn->prepare($sql_mascotas);
+$stmt_mascotas->bind_param("i", $id);
+$stmt_mascotas->execute();
+$result_mascotas = $stmt_mascotas->get_result();
+
+// Detalles de la mascota seleccionada
+$mascota_detalles = null;
+if ($mascota_id > 0) {
+    $sql_mascota = "SELECT * FROM mascotas WHERE id = ?";
+    $stmt_mascota = $conn->prepare($sql_mascota);
+    $stmt_mascota->bind_param("i", $mascota_id);
+    $stmt_mascota->execute();
+    $result_mascota = $stmt_mascota->get_result();
+    if ($result_mascota->num_rows > 0) {
+        $mascota_detalles = $result_mascota->fetch_assoc();
+    }
+}
+
+// Historial de visitas de la mascota seleccionada
+$sql_historial = "SELECT descripcion, fecha_visita FROM historial_visitas WHERE mascota_id = ? ORDER BY fecha_visita DESC";
+$stmt_historial = $conn->prepare($sql_historial);
+$stmt_historial->bind_param("i", $mascota_id);
+$stmt_historial->execute();
+$result_historial = $stmt_historial->get_result();
+
+// Cerrar conexión si no se necesita más
+$conn->close();
+?>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<?php
+
+
+
+// Datos del cliente y la mascota
+$dni = $_POST['dni'];
+$nombre_mascota = $_POST['nombre_mascota'];
+$especie = $_POST['especie'];
+$descripcion = $_POST['descripcion'];
+$fecha_visita = $_POST['fecha_visita'];
+
+// Verificar si el cliente ya existe
+$query_cliente = "SELECT id FROM clientes WHERE dni = ?";
+$stmt_cliente = $conn->prepare($query_cliente);
+$stmt_cliente->bind_param("s", $dni);
+$stmt_cliente->execute();
+$result_cliente = $stmt_cliente->get_result();
+
+if ($result_cliente->num_rows > 0) {
+    $cliente_id = $result_cliente->fetch_assoc()['id'];
+
+    // Verificar si la mascota ya existe
+    $query_mascota = "SELECT id FROM mascotas WHERE nombre = ? AND especie = ? AND cliente_id = ?";
+    $stmt_mascota = $conn->prepare($query_mascota);
+    $stmt_mascota->bind_param("ssi", $nombre_mascota, $especie, $cliente_id);
+    $stmt_mascota->execute();
+    $result_mascota = $stmt_mascota->get_result();
+
+    if ($result_mascota->num_rows > 0) {
+        // Mascota existe, registrar nueva visita
+        $mascota_id = $result_mascota->fetch_assoc()['id'];
+        $query_historial = "INSERT INTO historial_visitas (mascota_id, descripcion, fecha_visita) VALUES (?, ?, ?)";
+        $stmt_historial = $conn->prepare($query_historial);
+        $stmt_historial->bind_param("iss", $mascota_id, $descripcion, $fecha_visita);
+        $stmt_historial->execute();
+    } else {
+        // Mascota no existe, crearla
+        $query_nueva_mascota = "INSERT INTO mascotas (nombre, especie, cliente_id) VALUES (?, ?, ?)";
+        $stmt_nueva_mascota = $conn->prepare($query_nueva_mascota);
+        $stmt_nueva_mascota->bind_param("ssi", $nombre_mascota, $especie, $cliente_id);
+        $stmt_nueva_mascota->execute();
+        $mascota_id = $stmt_nueva_mascota->insert_id;
+
+        // Registrar la visita para la nueva mascota
+        $query_historial = "INSERT INTO historial_visitas (mascota_id, descripcion, fecha_visita) VALUES (?, ?, ?)";
+        $stmt_historial = $conn->prepare($query_historial);
+        $stmt_historial->bind_param("iss", $mascota_id, $descripcion, $fecha_visita);
+        $stmt_historial->execute();
+    }
+} else {
+    echo "Cliente no encontrado.";
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<?php
+$conn = new mysqli("localhost", "root", "", "veterinaria");
+if ($conn->connect_error) {
+    die("Conexión fallida: " . $conn->connect_error);
+}
+
+$id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$mascota_id = isset($_GET['mascota_id']) ? intval($_GET['mascota_id']) : 0;
+
+$sql = "SELECT * FROM clientes WHERE id = ?";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $id);
+$stmt->execute();
+$result = $stmt->get_result();
+
+if ($result->num_rows > 0) {
+    $row = $result->fetch_assoc();
+} else {
+    die("No se encontró el propietario.");
+}
+
+// Verificar si la mascota existe para el cliente
+$sql_mascotas = "SELECT * FROM mascotas WHERE propietario_id = ?";
+$stmt_mascotas = $conn->prepare($sql_mascotas);
+$stmt_mascotas->bind_param("i", $id);
+$stmt_mascotas->execute();
+$result_mascotas = $stmt_mascotas->get_result();
+
+$mascota_detalles = null;
+if ($mascota_id > 0) {
+    // Obtener detalles de la mascota seleccionada
+    $sql_mascota = "SELECT * FROM mascotas WHERE id = ?";
+    $stmt_mascota = $conn->prepare($sql_mascota);
+    $stmt_mascota->bind_param("i", $mascota_id);
+    $stmt_mascota->execute();
+    $result_mascota = $stmt_mascota->get_result();
+    if ($result_mascota->num_rows > 0) {
+        $mascota_detalles = $result_mascota->fetch_assoc();
+    }
+}
+
+// Historial de visitas
+$sql_historial = "SELECT descripcion, fecha_visita FROM historial_visitas WHERE mascota_id = ? ORDER BY fecha_visita DESC";
+$stmt_historial = $conn->prepare($sql_historial);
+$stmt_historial->bind_param("i", $mascota_id);
+$stmt_historial->execute();
+$result_historial = $stmt_historial->get_result();
+
+// Verifica si la consulta devuelve resultados
+if ($result_historial->num_rows > 0) {
+    $descripcion = $result_historial->fetch_assoc()['descripcion'];
+} else {
+    $descripcion = "Sin descripción registrada";  // Valor por defecto si no hay registros
+}
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    // Editar cliente
+    if (isset($_POST['editar_cliente'])) {
+        $nuevo_nombre = $_POST['propietario'];
+        $nueva_direccion = $_POST['direccion'];
+        $nuevo_telefono = $_POST['telefono'];
+        $nuevo_dni = $_POST['dni'];
+        $nueva_fecha_inicio = $_POST['fechaSeguimientoInicio'];
+
+        $sql_editar = "UPDATE clientes SET propietario = ?, direccion = ?, telefono = ?, dni = ?, fechaSeguimientoInicio = ? WHERE id = ?";
+        $stmt_editar = $conn->prepare($sql_editar);
+        $stmt_editar->bind_param("sssssi", $nuevo_nombre, $nueva_direccion, $nuevo_telefono, $nuevo_dni, $nueva_fecha_inicio, $id);
+
+        if ($stmt_editar->execute()) {
+            $mensaje = "Datos del propietario actualizados correctamente.";
+            // Volver a cargar los datos actualizados
+            $row['propietario'] = $nuevo_nombre;
+            $row['direccion'] = $nueva_direccion;
+            $row['telefono'] = $nuevo_telefono;
+            $row['dni'] = $nuevo_dni;
+            $row['fechaSeguimientoInicio'] = $nueva_fecha_inicio;
+        } else {
+            $mensaje = "Error al actualizar los datos del propietario.";
+        }
+    }
+
+    // Editar mascota
+    if (isset($_POST['editar_mascota'])) {
+        $nuevo_nombre = $_POST['nombre'];
+        $nueva_especie = $_POST['especie'];
+        $nueva_raza = $_POST['raza'];
+        $nueva_fecha_nacimiento = $_POST['fechaNacimiento'];
+
+        $sql_editar_mascota = "UPDATE mascotas SET nombre = ?, especie = ?, raza = ?, fechaNacimiento = ? WHERE id = ?";
+        $stmt_editar_mascota = $conn->prepare($sql_editar_mascota);
+        $stmt_editar_mascota->bind_param("ssssi", $nuevo_nombre, $nueva_especie, $nueva_raza, $nueva_fecha_nacimiento, $mascota_id);
+
+        if ($stmt_editar_mascota->execute()) {
+            $mensaje_mascota = "Datos de la mascota actualizados correctamente.";
+            $mascota_detalles['nombre'] = $nuevo_nombre;
+            $mascota_detalles['especie'] = $nueva_especie;
+            $mascota_detalles['raza'] = $nueva_raza;
+            $mascota_detalles['fechaNacimiento'] = $nueva_fecha_nacimiento;
+        } else {
+            $mensaje_mascota = "Error al actualizar los datos de la mascota.";
+        }
+    }
+
+    // Agregar historial de visita
+    if (isset($_POST['agregar_visita']) && $mascota_id > 0) {
+        $descripcion_visita = $_POST['descripcion_visita'];
+        $fecha_visita = $_POST['fecha_visita'];
+
+        $sql_visita = "INSERT INTO historial_visitas (mascota_id, descripcion, fecha_visita) VALUES (?, ?, ?)";
+        $stmt_visita = $conn->prepare($sql_visita);
+        $stmt_visita->bind_param("iss", $mascota_id, $descripcion_visita, $fecha_visita);
+
+        if ($stmt_visita->execute()) {
+            $mensaje_visita = "Visita registrada correctamente.";
+        } else {
+            $mensaje_visita = "Error al registrar la visita.";
+        }
+    }
+}
+
+$conn->close();
+?>
+
+
